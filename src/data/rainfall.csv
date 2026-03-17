@@ -1,0 +1,11 @@
+state,district,trend,averageAnnualRainfall,2023_rainfall,2022_rainfall,2021_rainfall
+andhra pradesh,kurnool,Decreasing,800,750,810,850
+andhra pradesh,krishna,Increasing,1050,1100,1020,980
+andhra pradesh,prakasam,Decreasing,700,650,710,740
+andhra pradesh,srikakulam,Stable,1100,1080,1110,1090
+andhra pradesh,visakhapatnam,Increasing,1200,1250,1180,1150
+andhra pradesh,vizianagaram,Stable,1150,1140,1160,1145
+telangana,hyderabad,Increasing,800,850,780,750
+telangana,nirmal,Increasing,1000,1050,980,950
+maharashtra,pune,Stable,1000,990,1010,1000
+karnataka,bangalore urban,Decreasing,900,850,920,950

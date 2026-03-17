@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+
+    // ─── ADD THESE TWO LINES ───
+    "resolveJsonModule": true,           // ← Enables JSON imports
+    "allowSyntheticDefaultImports": true // ← Helps with default imports
+  },
+  "include": [
+    "src/**/*",
+    "src/**/*.json"  // ← Optional: explicitly include JSON files
+  ],
+  "exclude": ["node_modules", "dist"]
+}
