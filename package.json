@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node dist/server.js",
-    "build": "node -e \"const fs = require('fs'); fs.rmSync('dist', { recursive: true, force: true });\" && tsc",
+    "build": "node -e \"const fs = require('fs'); fs.rmSync('dist', { recursive: true, force: true });\" && npx tsc",
     "dev": "nodemon --exec ts-node src/server.ts",
     "dev:watch": "ts-node-dev --respawn --transpile-only src/server.ts",
     "lint": "eslint . --ext .ts",
@@ -49,7 +49,10 @@
     "node-cron": "^3.0.3",
     "redis": "^5.10.0",
     "winston": "^3.19.0",
-    "xss-clean": "^0.1.4"
+    "xss-clean": "^0.1.4",
+    "typescript": "^5.9.3",
+    "ts-node": "^10.9.2",
+    "@types/node": "^22.10.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -61,8 +64,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.97",
     "@types/morgan": "^1.9.9",
-    "@types/node": "^22.10.7",
-    "@types/node-cron": "^3.0.11",
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.19.1",
     "eslint": "^9.17.0",
@@ -71,8 +72,6 @@
     "nodemon": "^3.1.9",
     "prettier": "^3.4.2",
     "rimraf": "^6.0.1",
-    "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.3"
+    "ts-node-dev": "^2.0.0"
   }
 }
