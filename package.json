@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node dist/server.js",
-    "build": "rimraf dist && tsc",
+    "build": "node -e \"const fs = require('fs'); fs.rmSync('dist', { recursive: true, force: true });\" && tsc",
     "dev": "nodemon --exec ts-node src/server.ts",
     "dev:watch": "ts-node-dev --respawn --transpile-only src/server.ts",
     "lint": "eslint . --ext .ts",
