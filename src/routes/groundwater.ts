@@ -25,11 +25,11 @@ router.get('/groundwater', validateQueryParams, async (req, res) => {
       sort = 'date:-1',
     } = req.query;
 
-    const query: any = {
-      'location.state': { $regex: new RegExp(state as string, 'i') },
-      // COMMENTED OUT — we want to show stations even if water level is null/missing
-      // waterLevelMbgl: { $ne: null, $exists: true },
-    };
+    const query: any = {};
+    
+    if (state && state !== 'All India') {
+      query['location.state'] = { $regex: new RegExp(state as string, 'i') };
+    }
 
     if (district) query['location.district'] = { $regex: new RegExp(district as string, 'i') };
     if (village) query['location.village'] = { $regex: new RegExp(village as string, 'i') };
@@ -110,6 +110,43 @@ router.get('/pincodes/suggest', async (req, res) => {
   } catch (err: any) {
     logger.error('PIN suggest error', { error: err.message });
     res.status(500).json({ success: false, error: 'Failed to suggest PIN codes' });
+  }
+});
+
+// POST /api/v1/sync
+router.post('/sync', async (req, res) => {
+  try {
+    const { state, district, agencyName = 'CGWB', startdate, enddate } = req.body;
+
+    if (!state || typeof state !== 'string' || state.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid state name is required'
+      });
+    }
+
+    if (!district || typeof district !== 'string' || district.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid district name is required'
+      });
+    }
+
+    const { fetchAndSaveGroundwaterData } = await import('../services/fetchGroundwater');
+    
+    logger.info(`Manual WRIS fetch triggered via /sync for state: ${state}, district: ${district}`);
+    
+    // Non-blocking fetch to avoid timeout on large datasets
+    fetchAndSaveGroundwaterData(state.trim(), district.trim(), agencyName, startdate, enddate)
+      .catch(err => logger.error('Async sync background fetch failed', err));
+
+    res.json({
+      success: true,
+      message: `Synchronization started for ${state}/${district}. This may take a few minutes. Check logs for progress.`,
+    });
+  } catch (err: any) {
+    logger.error('Sync route error', { error: err.message });
+    res.status(500).json({ success: false, error: 'Failed to initialize synchronization' });
   }
 });
 

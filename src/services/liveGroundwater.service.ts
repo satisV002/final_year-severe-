@@ -1,6 +1,7 @@
 import axios from 'axios';
 import logger from '../utils/logger';
 import { getStationById, Station } from './stationLoader.service';
+import { Groundwater } from '../models/Groundwater';
 
 const WRIS_API_URL = 'https://indiawris.gov.in/wris/api/groundwater';
 
@@ -89,10 +90,51 @@ export const fetchLiveGroundwater = async (stationId: string): Promise<WRISApiRe
     }
 };
 
+const stateGroundwaterProfiles: Record<string, { base: number; swing: number; trend: 'Rising' | 'Falling' | 'Stable' }> = {
+    'rajasthan': { base: 25, swing: 5, trend: 'Falling' },
+    'punjab': { base: 22, swing: 4, trend: 'Falling' },
+    'haryana': { base: 20, swing: 4, trend: 'Falling' },
+    'delhi': { base: 18, swing: 3, trend: 'Falling' },
+    'tamil nadu': { base: 12, swing: 6, trend: 'Stable' },
+    'karnataka': { base: 15, swing: 5, trend: 'Falling' },
+    'andhra pradesh': { base: 10, swing: 4, trend: 'Stable' },
+    'telangana': { base: 11, swing: 4, trend: 'Rising' },
+    'kerala': { base: 6, swing: 3, trend: 'Rising' },
+    'west bengal': { base: 8, swing: 4, trend: 'Stable' },
+    'assam': { base: 5, swing: 3, trend: 'Stable' },
+    'default': { base: 10, swing: 4, trend: 'Stable' }
+};
+
 /**
  * GENERATES MOCK DATA FOR FALLBACK
  */
-const getFallbackData = (station: Station): WRISApiResponse => {
+const getFallbackData = async (station: Station): Promise<WRISApiResponse> => {
+    try {
+        // Try to fetch from MongoDB first
+        const dbRecords = await Groundwater.find({
+            'location.stationId': station.stationId
+        }).sort({ date: -1 }).limit(12).lean().exec();
+
+        if (dbRecords && dbRecords.length > 0) {
+            return {
+                success: true,
+                data: dbRecords.map((r: any) => ({
+                    date: r.date,
+                    level: r.waterLevelMbgl,
+                    agency: r.source || 'Local-DB'
+                })),
+                isFallback: true,
+                warning: 'Data retrieved from local historical database'
+            };
+        }
+    } catch (err) {
+        logger.error('DB Fallback failed', err);
+    }
+
+    // Secondary fallback: Procedural Mock Data
+    const stateKey = station.stateName.toLowerCase();
+    const profile = stateGroundwaterProfiles[stateKey] || stateGroundwaterProfiles['default'];
+    
     const data = [];
     const today = new Date();
     
@@ -104,15 +146,21 @@ const getFallbackData = (station: Station): WRISApiResponse => {
         const month = d.getMonth();
         const isMonsoon = month >= 5 && month <= 9;
         
-        // Base level around 8-12m
-        let level = 10 + (Math.random() - 0.5) * 2;
-        if (isMonsoon) level -= 2; // Better (lower) in monsoon
-        else level += 1; // Worse in summer
+        // Base level + trend factor + seasonality + random noise
+        let trendFactor = 0;
+        if (profile.trend === 'Falling') trendFactor = (12 - i) * 0.1;
+        if (profile.trend === 'Rising') trendFactor = (12 - i) * -0.1;
+
+        let level = profile.base + trendFactor;
+        if (isMonsoon) level -= profile.swing / 2;
+        else level += profile.swing / 4;
+
+        level += (Math.random() - 0.5) * 1; // 1m noise
         
         data.push({
             date: d.toISOString(),
-            level: Number(level.toFixed(2)),
-            agency: 'MOCK-FALLBACK'
+            level: Math.max(0.5, Number(level.toFixed(2))),
+            agency: 'SYNTHETIC-STATE-MODEL'
         });
     }
 
@@ -120,6 +168,6 @@ const getFallbackData = (station: Station): WRISApiResponse => {
         success: true,
         data,
         isFallback: true,
-        warning: 'Falling back to generated mock data due to external API unavailability'
+        warning: `Synthetic state model fallback (${profile.trend} trend predicted for ${station.stateName})`
     };
 };

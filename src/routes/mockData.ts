@@ -1,109 +1,96 @@
 import { Router } from 'express';
-import { IGroundwaterData } from '../types';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 
-// Generate 500 records across top 5 districts in Telangana
-const MOCK_STATIONS = [
-    { id: 'CGWB-TL01', name: 'Hyderabad Central', district: 'Hyderabad', lat: 17.385, lng: 78.4866 },
-    { id: 'CGWB-TL02', name: 'Medchal Rural', district: 'Medchal', lat: 17.629, lng: 78.481 },
-    { id: 'CGWB-TL03', name: 'Rangareddy Deep', district: 'Rangareddy', lat: 17.333, lng: 78.333 },
-    { id: 'CGWB-TL04', name: 'Nizamabad North', district: 'Nizamabad', lat: 18.672, lng: 78.094 },
-    { id: 'CGWB-TL05', name: 'Warangal Urban', district: 'Warangal', lat: 18.000, lng: 79.583 },
-];
-
-const mockData: IGroundwaterData[] = [];
-// Generate monthly data from 2018 to 2024 (7 years = 84 months) for 6 stations = 504 records
-let idCounter = 1;
-const START_YEAR = 2018;
-
-MOCK_STATIONS.forEach(st => {
-    let baseLevel = 8 + Math.random() * 5; // Base water level between 8m and 13m
-
-    for (let year = START_YEAR; year <= 2024; year++) {
-        for (let month = 0; month < 12; month++) {
-            // Create seasonal variation (monsoon brings water level up / mbgl down in months 6-9)
-            const isMonsoon = month >= 5 && month <= 9;
-            // Slight decline over years
-            const yearlyDecline = (year - START_YEAR) * 0.2;
-
-            let variance = (Math.random() - 0.5) * 1.5;
-            if (isMonsoon) {
-                variance -= 2; // Water level drops (improves) during monsoon
-            } else {
-                variance += 0.5; // Water level rises (depletes) during summer
-            }
-
-            let level = baseLevel + yearlyDecline + variance;
-            if (level < 2) level = 2; // Cap min depth
-
-            const rainfall = isMonsoon ? 150 + Math.random() * 200 : 10 + Math.random() * 40;
-
-            const prevLevel = level + (Math.random() - 0.5);
-            const trend = level < prevLevel ? 'Rising' : level > prevLevel + 0.5 ? 'Falling' : 'Stable';
-
-            const date = new Date(Date.UTC(year, month, 15));
-
-            mockData.push({
-                _id: `mock-${idCounter++}` as any,
-                location: {
-                    state: 'Telangana',
-                    district: st.district,
-                    village: st.name,
-                    stationId: st.id,
-                    pinCode: '500001',
-                    coordinates: { type: 'Point', coordinates: [st.lng, st.lat] }
-                },
-                date,
-                waterLevelMbgl: Number(level.toFixed(2)),
-                // @ts-ignore
-                rainfall: Number(rainfall.toFixed(1)),
-                trend,
-                source: 'WRIS',
-                year,
-                month: month + 1
-            });
-        }
-    }
-});
+let allStations: any[] = [];
+try {
+    const stationsPath = path.join(__dirname, '../data/stations.json');
+    const data = fs.readFileSync(stationsPath, 'utf8');
+    allStations = JSON.parse(data);
+    console.log(`Loaded ${allStations.length} stations into memory for mock data serving.`);
+} catch (e) {
+    console.error('Error loading stations.json:', e);
+}
 
 // GET /api/v1/mock/groundwater
 router.get('/groundwater', (req, res) => {
     const { state, district, page = '1', limit = '100', sort = 'date:-1' } = req.query;
 
-    let filtered = [...mockData];
+    let filtered = allStations;
 
-    if (state) {
-        filtered = filtered.filter(d => d.location.state.toLowerCase().includes((state as string).toLowerCase()));
+    if (state && typeof state === 'string' && state !== 'All India' && state !== 'all') {
+        filtered = filtered.filter(s => s.State_Name && s.State_Name.toLowerCase().includes(state.toLowerCase()));
     }
-    if (district) {
-        filtered = filtered.filter(d => (d.location.district ?? '').toLowerCase().includes((district as string).toLowerCase()));
+    if (district && typeof district === 'string') {
+        filtered = filtered.filter(s => s.District_Name && s.District_Name.toLowerCase().includes(district.toLowerCase()));
     }
-
-    // Sorting
-    const [sortField, sortOrder] = (sort as string).split(':');
-    filtered.sort((a, b) => {
-        let valA: any = sortField === 'date' ? (a.date instanceof Date ? a.date : new Date(a.date)).getTime() : a.waterLevelMbgl;
-        let valB: any = sortField === 'date' ? (b.date instanceof Date ? b.date : new Date(b.date)).getTime() : b.waterLevelMbgl;
-        return sortOrder === '1' ? valA - valB : valB - valA;
-    });
 
     const p = Math.max(1, parseInt(page as string, 10));
-    const l = parseInt(limit as string, 10) || 100;
+    const l = Math.min(parseInt(limit as string, 10) || 100, 2000); 
 
-    const start = (p - 1) * l;
-    const paginated = filtered.slice(start, start + l);
+    // If "All India" or no state, shuffle/sample to show diversity
+    let stationsToMock = [...filtered];
+    if ((!state || state === 'All India') && stationsToMock.length > l) {
+        // Simple deterministic shuffle based on page to show diversity
+        stationsToMock = stationsToMock.sort((a,b) => (a.Station_Name || '').localeCompare(b.Station_Name || ''));
+        // Sample every Nth station to cover all states
+        const step = Math.max(1, Math.floor(stationsToMock.length / l));
+        stationsToMock = stationsToMock.filter((_, idx) => idx % step === 0).slice(0, l);
+    } else {
+        const start = (p - 1) * l;
+        stationsToMock = stationsToMock.slice(start, start + l);
+    }
+
+    const transformed: any[] = [];
+    const today = new Date();
+
+    stationsToMock.forEach((st, i) => {
+        const seed = Math.abs((st.Latitude || 17) * (st.Longitude || 78));
+        const stationId = `${st.State_Name?.substring(0,2)}-${i}-${st.Station_Name?.substring(0,3)}`.toUpperCase();
+
+        // Generate 12 months of history for each station to populate "Recharge vs Extraction" and Trends
+        for (let m = 0; m < 12; m++) {
+            const d = new Date(today.getFullYear(), today.getMonth() - m, 15);
+            const month = d.getMonth() + 1;
+            const isMonsoon = month >= 6 && month <= 9;
+            
+            // Base level around 8-12m
+            const baseLevel = 2 + (seed % 15) + (isMonsoon ? -2 : 2); 
+            const rain = isMonsoon ? (150 + (seed % 300)) : (5 + (seed % 20));
+
+            transformed.push({
+                _id: `mock-${stationId}-${m}`,
+                location: {
+                    state: st.State_Name,
+                    district: st.District_Name,
+                    village: st.Station_Name || st.Tahsil_Name,
+                    stationId: stationId,
+                    pinCode: '000000',
+                    coordinates: { type: 'Point', coordinates: [st.Longitude, st.Latitude] }
+                },
+                date: d.toISOString(),
+                waterLevelMbgl: Number(baseLevel.toFixed(2)),
+                rainfall: Number(rain.toFixed(1)),
+                trend: (seed % 3) < 1 ? 'Rising' : (seed % 3) < 2 ? 'Falling' : 'Stable',
+                source: st.Agency_Name || 'WRIS/Local',
+                year: d.getFullYear(),
+                month: month
+            });
+        }
+    });
 
     res.json({
         success: true,
-        data: paginated,
+        data: transformed,
         pagination: {
             page: p,
             limit: l,
             totalPages: Math.ceil(filtered.length / l),
-            totalRecords: filtered.length
+            totalRecords: transformed.length
         },
-        message: '500+ Mock records generated successfully'
+        message: 'Mock records generated with 12-month history for dashboard consistency'
     });
 });
 
@@ -111,10 +98,10 @@ router.get('/groundwater', (req, res) => {
 router.get('/summary', (req, res) => {
     res.json({
         success: true,
-        totalRecords: mockData.length,
-        districts: [...new Set(mockData.map(d => d.location.district))],
-        avgLevel: Number((mockData.reduce((a, b) => a + b.waterLevelMbgl, 0) / mockData.length).toFixed(2)),
-        data: mockData
+        totalRecords: allStations.length,
+        districts: [], // Compute unique on frontend or leave empty for performance
+        avgLevel: 10.5,
+        data: [] 
     });
 });
 

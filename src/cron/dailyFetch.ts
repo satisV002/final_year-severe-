@@ -10,7 +10,8 @@ const STATES_TO_FETCH = [
   'Karnataka',
   'Telangana',
   'Maharashtra',
-  // Inka add cheyochu: 'Gujarat', 'Rajasthan', 'Punjab', 'Uttar Pradesh' etc.
+  'Uttar Pradesh',
+  // Inka add cheyochu: 'Gujarat', 'Rajasthan', 'Punjab' etc.
 ];
 
 export function setupDailyFetchCron() {
