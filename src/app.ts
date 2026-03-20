@@ -13,7 +13,6 @@ import { requestLogger } from './middleware/loggerMiddleware';
 import groundwaterRouter from './routes/groundwater';
 import authRouter from './routes/auth';
 import liveDataRouter from './routes/liveData';
-import devRoutes from './routes/devRoutes';
 import mockDataRouter from './routes/mockData';
 import proxyRouter from './routes/proxy';
 
@@ -25,7 +24,7 @@ const createApp = (): Express => {
 
   // CORS
   app.use(cors({
-    origin: env.isProd ? ['https://your-frontend-domain.com'] : true,
+    origin: env.isProd ? [env.FRONTEND_URL] : true,
     credentials: true,
   }));
 
@@ -64,7 +63,6 @@ const createApp = (): Express => {
   app.use('/api/v1', liveDataRouter);              // Live Data endpoints
   app.use('/api/v1', proxyRouter);                 // Generic Proxy endpoint
   app.use('/api/v1/mock', mockDataRouter);      // GUARANTEED MOCK DATA API 500+ Records
-  app.use('/dev', devRoutes);                   // Dev / Self-Test endpoints
 
   // Health check
   app.get('/health', (req, res) => {

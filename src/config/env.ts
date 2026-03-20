@@ -10,7 +10,7 @@ const envVars = cleanEnv(process.env, {
     choices: ["development", "production", "test"],
   }),
 
-  PORT: num({ default: 8000 }),
+  PORT: num({ default: 7000 }),
 
   MONGODB_URI: str(),
 
@@ -34,6 +34,10 @@ const envVars = cleanEnv(process.env, {
 
   JWT_EXPIRY: str({
     default: "1h",
+  }),
+  
+  FRONTEND_URL: str({
+    default: "http://localhost:3000",
   }),
 });
 
