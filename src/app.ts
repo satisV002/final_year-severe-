@@ -41,16 +41,31 @@ const createApp = (): Express => {
 
   // ─── CORS ───────────────────────────────────────────────────────────────────
   const ALLOWED_ORIGINS = [
-    'https://final-year-client-three.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:3001',
-  ];
+    env.FRONTEND_URL,                    // From .env (Production/Dev override)
+    'https://final-year-client-three.vercel.app', // Explicit production URL
+    'http://localhost:3000',             // Next.js default
+    'http://localhost:3001',             // Alternate
+    'http://localhost:3002',             // Alternate
+    'http://localhost:3005',             // Alternate
+    'http://localhost:5173',             // Vite default
+    'http://localhost:8080',             // Legacy/Other
+  ].filter(Boolean); // Remove any undefined/null values
 
   const corsOptions = {
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (mobile apps, curl, Postman etc.)
       if (!origin) return callback(null, true);
-      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      
+      // Check if origin is in allowed list
+      if (ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Development convenience: allow any localhost in dev mode (optional, but safer to be explicit)
+      if (env.isDev && origin.startsWith('http://localhost:')) {
+        return callback(null, true);
+      }
+
       callback(new Error(`CORS: Origin not allowed → ${origin}`));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -59,25 +74,23 @@ const createApp = (): Express => {
     optionsSuccessStatus: 204,
   };
 
-  // Handle preflight for ALL routes (MUST be before routes)
+  // Apply CORS middleware
   const actualCors = typeof cors === 'function' ? cors : (cors?.default || cors);
   if (typeof actualCors === 'function') {
-    app.use(actualCors(corsOptions as any));
+    app.use(actualCors(corsOptions));
   } else {
-    console.error('❌ Critical: cors is not a function after all attempts!', typeof actualCors);
+    console.warn('⚠️ cors middleware fallback used');
   }
 
-
-
-  // Manual header fallback (belt-and-suspenders)
+  // Manual header fallback for extra stability
   app.use((req, res, next) => {
     const origin = req.headers.origin as string | undefined;
-    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    if (origin && (ALLOWED_ORIGINS.includes(origin) || (env.isDev && origin.startsWith('http://localhost:')))) {
       res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
     next();
   });
   // ─────────────────────────────────────────────────────────────────────────────
