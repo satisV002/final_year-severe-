@@ -46,7 +46,7 @@ const createApp = (): Express => {
     'http://localhost:3000',             // Next.js default
     'http://localhost:3001',             // Alternate
     'http://localhost:3002',             // Alternate
-    'http://localhost:3005',             // Alternate
+    'http://localhost:3005',             // Alternatea
     'http://localhost:5173',             // Vite default
     'http://localhost:8080',             // Legacy/Other
   ].filter(Boolean); // Remove any undefined/null values
@@ -82,15 +82,36 @@ const createApp = (): Express => {
     console.warn('⚠️ cors middleware fallback used');
   }
 
+  // Debug endpoint to check CORS config (Public for now)
+  app.get('/api/v1/debug-cors', (req, res) => {
+    res.json({
+      allowedOrigins: ALLOWED_ORIGINS,
+      currentOrigin: req.headers.origin,
+      isMatch: req.headers.origin ? ALLOWED_ORIGINS.includes(req.headers.origin) : 'no origin',
+      env: {
+        isDev: env.isDev,
+        frontendUrl: env.FRONTEND_URL
+      }
+    });
+  });
+
   // Manual header fallback for extra stability
   app.use((req, res, next) => {
     const origin = req.headers.origin as string | undefined;
-    if (origin && (ALLOWED_ORIGINS.includes(origin) || (env.isDev && origin.startsWith('http://localhost:')))) {
+    const isAllowed = origin && (ALLOWED_ORIGINS.includes(origin) || (env.isDev && origin.startsWith('http://localhost:')));
+    
+    if (origin && isAllowed) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
+    
+    // Handle preflight for manual fallback
+    if (req.method === 'OPTIONS' && isAllowed) {
+      return res.status(204).end();
+    }
+    
     next();
   });
   // ─────────────────────────────────────────────────────────────────────────────
