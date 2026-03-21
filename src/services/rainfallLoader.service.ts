@@ -20,7 +20,14 @@ export const loadRainfall = async (): Promise<void> => {
 
     const filePath = path.join(__dirname, '../data/rainfall.csv');
 
-    return new Promise((resolve, reject) => {
+    // If file doesn't exist, skip gracefully — fallback data will be used at query time
+    if (!fs.existsSync(filePath)) {
+        console.warn(`[RainfallLoader] rainfall.csv not found at ${filePath} — using in-memory state defaults.`);
+        isLoaded = true;
+        return;
+    }
+
+    return new Promise((resolve) => {
         fs.createReadStream(filePath)
             .pipe(csvParser())
             .on('data', (row: any) => {
@@ -40,11 +47,13 @@ export const loadRainfall = async (): Promise<void> => {
                 resolve();
             })
             .on('error', (error: any) => {
-                console.error('[RainfallLoader] Failed to load rainfall data:', error);
-                reject(error);
+                console.error('[RainfallLoader] Failed to load rainfall data — falling back to state defaults:', error.message);
+                isLoaded = true; // Mark as loaded so we don't retry
+                resolve();       // Never reject — use state-level fallback data instead
             });
     });
 };
+
 
 export const getRainfallByLocation = (state: string, district: string): RainfallData | null => {
     if (!isLoaded) {
