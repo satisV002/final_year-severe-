@@ -22,11 +22,43 @@ const createApp = (): Express => {
   // Security headers
   app.use(helmet());
 
-  // CORS
-  app.use(cors({
-    origin: env.isProd ? [env.FRONTEND_URL] : true,
+  // ─── CORS ───────────────────────────────────────────────────────────────────
+  const ALLOWED_ORIGINS = [
+    'https://final-year-client-three.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+  ];
+
+  const corsOptions = {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Allow requests with no origin (mobile apps, curl, Postman etc.)
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: Origin not allowed → ${origin}`));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
-  }));
+    optionsSuccessStatus: 204,
+  };
+
+  // Handle preflight for ALL routes (MUST be before routes)
+  app.options('*', cors(corsOptions));
+  app.use(cors(corsOptions));
+
+  // Manual header fallback (belt-and-suspenders)
+  app.use((req, res, next) => {
+    const origin = req.headers.origin as string | undefined;
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    next();
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
+
 
   // Body parsing
   app.use(express.json({ limit: '10kb' }));
