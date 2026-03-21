@@ -55,12 +55,12 @@ const createApp = (): Express => {
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (mobile apps, curl, Postman etc.)
       if (!origin) return callback(null, true);
-      
+
       // Check if origin is in allowed list
       if (ALLOWED_ORIGINS.includes(origin)) {
         return callback(null, true);
       }
-      
+
       // Development convenience: allow any localhost in dev mode (optional, but safer to be explicit)
       if (env.isDev && origin.startsWith('http://localhost:')) {
         return callback(null, true);
