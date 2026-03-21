@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const axios_1 = __importDefault(require("axios"));
 const logger_1 = __importDefault(require("../utils/logger"));
+const catchAsync_1 = require("../utils/catchAsync");
 const router = (0, express_1.Router)();
 /**
  * GENERIC PROXY ENDPOINT
@@ -14,13 +15,13 @@ const router = (0, express_1.Router)();
  * Allows frontend to fetch external resources via backend to avoid CORS
  * and provide a centralized point for rate-limiting/logging.
  */
-router.all('/proxy', async (req, res) => {
+router.all('/proxy', (0, catchAsync_1.catchAsync)(async (req, res) => {
     const targetUrl = req.query.url || req.body.url;
     if (!targetUrl) {
         return res.status(400).json({ success: false, error: 'Target URL is required' });
     }
+    logger_1.default.info(`Proxying ${req.method} request to: ${targetUrl}`);
     try {
-        logger_1.default.info(`Proxying ${req.method} request to: ${targetUrl}`);
         const response = await (0, axios_1.default)({
             method: req.method,
             url: targetUrl,
@@ -34,17 +35,19 @@ router.all('/proxy', async (req, res) => {
         res.status(response.status).json(response.data);
     }
     catch (error) {
+        // We still catch local axios errors to provide a "Proxy request failed" message
+        // instead of a generic "Internal Server Error"
         logger_1.default.error('Proxy request failed', {
             url: targetUrl,
             status: error.response?.status,
             message: error.message
         });
-        res.status(error.response?.status || 500).json({
+        res.status(error.response?.status || 502).json({
             success: false,
             error: 'Proxy request failed',
             details: error.message
         });
     }
-});
+}));
 exports.default = router;
 //# sourceMappingURL=proxy.js.map

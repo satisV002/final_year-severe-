@@ -24,11 +24,41 @@ const createApp = () => {
     const app = (0, express_1.default)();
     // Security headers
     app.use((0, helmet_1.default)());
-    // CORS
-    app.use((0, cors_1.default)({
-        origin: env_1.env.isProd ? [env_1.env.FRONTEND_URL] : true,
+    // ─── CORS ───────────────────────────────────────────────────────────────────
+    const ALLOWED_ORIGINS = [
+        'https://final-year-client-three.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:3001',
+    ];
+    const corsOptions = {
+        origin: (origin, callback) => {
+            // Allow requests with no origin (mobile apps, curl, Postman etc.)
+            if (!origin)
+                return callback(null, true);
+            if (ALLOWED_ORIGINS.includes(origin))
+                return callback(null, true);
+            callback(new Error(`CORS: Origin not allowed → ${origin}`));
+        },
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true,
-    }));
+        optionsSuccessStatus: 204,
+    };
+    // Handle preflight for ALL routes (MUST be before routes)
+    app.options('*', (0, cors_1.default)(corsOptions));
+    app.use((0, cors_1.default)(corsOptions));
+    // Manual header fallback (belt-and-suspenders)
+    app.use((req, res, next) => {
+        const origin = req.headers.origin;
+        if (origin && ALLOWED_ORIGINS.includes(origin)) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+        }
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        next();
+    });
+    // ─────────────────────────────────────────────────────────────────────────────
     // Body parsing
     app.use(express_1.default.json({ limit: '10kb' }));
     app.use(express_1.default.urlencoded({ extended: true, limit: '10kb' }));

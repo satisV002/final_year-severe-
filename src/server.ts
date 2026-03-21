@@ -9,39 +9,58 @@ import { setupDailyFetchCron } from './cron/dailyFetch';
 import { loadStations } from './services/stationLoader.service';
 import { loadRainfall } from './services/rainfallLoader.service';
 
-const app = createApp();          // ✅ FIX
+// ── Global Error Listeners (Add FIRST to catch everything)
+process.on("uncaughtException", (err) => {
+  console.error("🚨 UNCAUGHT EXCEPTION:", err);
+  logger.error("Uncaught Exception", { error: err.message, stack: err.stack });
+  // Don't exit immediately in dev, but in prod we might need to
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("🚨 UNHANDLED REJECTION at:", promise, "reason:", reason);
+  logger.error("Unhandled Rejection", { reason });
+});
+
+const app = createApp();
 const server = http.createServer(app);
+
+// ── Server-level Error Handling (e.g. EADDRINUSE)
+server.on('error', (err: any) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${env.PORT} is already in use. Please kill the process or use a different port.`);
+  } else {
+    console.error('❌ Server error:', err);
+  }
+  process.exit(1);
+});
 
 const startServer = async () => {
   try {
-    await loadStations(); // Preload stations into memory
-    await loadRainfall(); // Preload rainfall into memory
+    console.log('🚀 Starting stability sequence...');
+    await loadStations(); 
+    await loadRainfall(); 
 
     if (!env.isTest) {
       await connectDB();
 
-      // Redis is optional — failure won't crash the server
       try {
         await getRedisClient();
         logger.info('DB + Redis connected');
       } catch {
         logger.warn('Redis unavailable — starting without cache layer');
-        logger.info('DB connected (Redis skipped)');
       }
 
       if (env.isProd) {
         setupDailyFetchCron();
       }
-    } else {
-      logger.info('TEST MODE → DB / Redis / Cron skipped');
     }
 
     server.listen(env.PORT, () => {
-      logger.info(`Server running → http://localhost:${env.PORT}`);
+      logger.info(`Server running → http://localhost:${env.PORT} (PID: ${process.pid})`);
+      console.log(`✅ Stability sequence complete. Server listening on ${env.PORT}`);
     });
   } catch (err: any) {
-    console.error('CRITICAL SERVER CRASH:', err);
-    logger.error('Server startup failed', { error: err.message });
+    console.error('🔥 CRITICAL STARTUP ERROR:', err);
     process.exit(1);
   }
 };
@@ -60,12 +79,6 @@ const shutdown = async (signal: string) => {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on("uncaughtException", (err) => {
-  console.error("UNCAUGHT EXCEPTION:", err);
-});
-
-process.on("unhandledRejection", (err) => {
-  console.error("UNHANDLED REJECTION:", err);
-});
 
 startServer();
+

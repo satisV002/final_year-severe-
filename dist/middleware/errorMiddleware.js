@@ -16,12 +16,23 @@ class AppError extends Error {
 }
 exports.AppError = AppError;
 const errorHandler = (err, req, res, next) => {
-    const statusCode = err instanceof AppError ? err.statusCode : 500;
-    const message = err instanceof AppError ? err.message : 'Internal Server Error';
+    let statusCode = err.statusCode || 500;
+    let message = err.message || 'Internal Server Error';
+    // Specific Error Handlers
+    if (err.name === 'ValidationError')
+        statusCode = 400; // Mongoose Validation Error
+    if (err.code === 11000) { // Mongoose Duplicate Key Error
+        statusCode = 400;
+        message = 'Duplicate field value entered';
+    }
+    if (err.name === 'JsonWebTokenError')
+        statusCode = 401; // Invalid Token
+    if (err.name === 'TokenExpiredError')
+        statusCode = 401; // Expired Token
     logger_1.default.error(`${req.method} ${req.originalUrl} - ${statusCode} - ${message}`, {
-        error: err.stack,
+        stack: err.stack,
         ip: req.ip,
-        userAgent: req.get('user-agent'),
+        path: req.path
     });
     res.status(statusCode).json({
         success: false,

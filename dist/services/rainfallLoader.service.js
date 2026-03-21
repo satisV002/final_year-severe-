@@ -13,9 +13,21 @@ const loadRainfall = async () => {
     if (isLoaded)
         return;
     const filePath = path_1.default.join(__dirname, '../data/rainfall.csv');
-    return new Promise((resolve, reject) => {
-        fs_1.default.createReadStream(filePath)
-            .pipe((0, csv_parser_1.default)())
+    // If file doesn't exist, skip gracefully — fallback data will be used at query time
+    if (!fs_1.default.existsSync(filePath)) {
+        console.warn(`[RainfallLoader] rainfall.csv not found at ${filePath} — using in-memory state defaults.`);
+        isLoaded = true;
+        return;
+    }
+    return new Promise((resolve) => {
+        const stream = fs_1.default.createReadStream(filePath);
+        // Handle stream-level errors (like ENOENT) directly on the source
+        stream.on('error', (error) => {
+            console.warn(`[RainfallLoader] Failed to open rainfall.csv: ${error.message} — using default state distributions.`);
+            isLoaded = true;
+            resolve();
+        });
+        stream.pipe((0, csv_parser_1.default)())
             .on('data', (row) => {
             rainfallCache.push({
                 state: row.state?.trim().toLowerCase() || '',
@@ -29,12 +41,15 @@ const loadRainfall = async () => {
         })
             .on('end', () => {
             isLoaded = true;
-            console.log(`[RainfallLoader] Successfully loaded ${rainfallCache.length} district rainfall records into memory cache.`);
+            if (rainfallCache.length > 0) {
+                console.log(`[RainfallLoader] Successfully loaded ${rainfallCache.length} district rainfall records.`);
+            }
             resolve();
         })
             .on('error', (error) => {
-            console.error('[RainfallLoader] Failed to load rainfall data:', error);
-            reject(error);
+            console.error('[RainfallLoader] CSV Parsing error:', error.message);
+            isLoaded = true;
+            resolve();
         });
     });
 };

@@ -28,8 +28,16 @@ export const loadRainfall = async (): Promise<void> => {
     }
 
     return new Promise((resolve) => {
-        fs.createReadStream(filePath)
-            .pipe(csvParser())
+        const stream = fs.createReadStream(filePath);
+        
+        // Handle stream-level errors (like ENOENT) directly on the source
+        stream.on('error', (error: any) => {
+            console.warn(`[RainfallLoader] Failed to open rainfall.csv: ${error.message} — using default state distributions.`);
+            isLoaded = true;
+            resolve();
+        });
+
+        stream.pipe(csvParser())
             .on('data', (row: any) => {
                 rainfallCache.push({
                     state: row.state?.trim().toLowerCase() || '',
@@ -43,15 +51,18 @@ export const loadRainfall = async (): Promise<void> => {
             })
             .on('end', () => {
                 isLoaded = true;
-                console.log(`[RainfallLoader] Successfully loaded ${rainfallCache.length} district rainfall records into memory cache.`);
+                if (rainfallCache.length > 0) {
+                    console.log(`[RainfallLoader] Successfully loaded ${rainfallCache.length} district rainfall records.`);
+                }
                 resolve();
             })
             .on('error', (error: any) => {
-                console.error('[RainfallLoader] Failed to load rainfall data — falling back to state defaults:', error.message);
-                isLoaded = true; // Mark as loaded so we don't retry
-                resolve();       // Never reject — use state-level fallback data instead
+                console.error('[RainfallLoader] CSV Parsing error:', error.message);
+                isLoaded = true;
+                resolve();
             });
     });
+
 };
 
 

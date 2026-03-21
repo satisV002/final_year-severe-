@@ -2,8 +2,9 @@
 import express, { Express } from 'express';
 import helmet from 'helmet';
 import compression from 'compression';
-import cors from 'cors';
 import morgan from 'morgan';
+const cors = require('cors');
+
 import hpp from 'hpp';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
@@ -15,12 +16,28 @@ import authRouter from './routes/auth';
 import liveDataRouter from './routes/liveData';
 import mockDataRouter from './routes/mockData';
 import proxyRouter from './routes/proxy';
-
 const createApp = (): Express => {
   const app = express();
 
+
+  // ─── DIAGNOSTIC LOGS ──────────────────────────────────────────
+  console.log('🧪 Middleware Diagnostics:', {
+    express: typeof express,
+    helmet: typeof helmet,
+    compression: typeof compression,
+    morgan: typeof morgan,
+    cors: typeof cors,
+    hpp: typeof hpp,
+    rateLimit: typeof rateLimit
+  });
+
   // Security headers
-  app.use(helmet());
+  if (typeof helmet === 'function') {
+    app.use(helmet());
+  } else {
+    console.error('❌ helmet is not a function!', helmet);
+  }
+
 
   // ─── CORS ───────────────────────────────────────────────────────────────────
   const ALLOWED_ORIGINS = [
@@ -43,8 +60,14 @@ const createApp = (): Express => {
   };
 
   // Handle preflight for ALL routes (MUST be before routes)
-  app.options('*', cors(corsOptions));
-  app.use(cors(corsOptions));
+  const actualCors = typeof cors === 'function' ? cors : (cors?.default || cors);
+  if (typeof actualCors === 'function') {
+    app.use(actualCors(corsOptions as any));
+  } else {
+    console.error('❌ Critical: cors is not a function after all attempts!', typeof actualCors);
+  }
+
+
 
   // Manual header fallback (belt-and-suspenders)
   app.use((req, res, next) => {

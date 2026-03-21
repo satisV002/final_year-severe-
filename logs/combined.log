@@ -1,0 +1,10 @@
+{"level":"info","message":"MongoDB Atlas connected → ac-mdcptfy-shard-00-00.uteykyo.mongodb.net (state: 1)","service":"groundwater-backend","timestamp":"2026-03-21 11:16:34"}
+{"level":"info","message":"Redis connected successfully","service":"groundwater-backend","timestamp":"2026-03-21 11:16:35"}
+{"level":"info","message":"Redis PING successful","service":"groundwater-backend","timestamp":"2026-03-21 11:16:36"}
+{"level":"info","message":"DB + Redis connected","service":"groundwater-backend","timestamp":"2026-03-21 11:16:36"}
+{"level":"info","message":"Daily cron job scheduled: 3:00 AM IST for 6 states","service":"groundwater-backend","timestamp":"2026-03-21 11:16:36"}
+{"level":"info","message":"Server running → http://localhost:7000","service":"groundwater-backend","timestamp":"2026-03-21 11:16:36"}
+{"email":"satishvadlamuri1@gmail.com","level":"info","message":"Login attempt","service":"groundwater-backend","timestamp":"2026-03-21 11:17:48"}
+{"duration":638,"level":"info","message":"Login success","service":"groundwater-backend","timestamp":"2026-03-21 11:17:49","userId":"69a9873447d9c0ca981084e7"}
+{"email":"satishvadlamuri1@gmail.com","level":"info","message":"Login attempt","service":"groundwater-backend","timestamp":"2026-03-21 11:17:54"}
+{"duration":611,"level":"info","message":"Login success","service":"groundwater-backend","timestamp":"2026-03-21 11:17:54","userId":"69a9873447d9c0ca981084e7"}

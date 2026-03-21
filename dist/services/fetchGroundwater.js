@@ -152,76 +152,78 @@ async function fetchAndSaveGroundwaterData(state, district, agencyName = 'CGWB',
                 await new Promise(r => setTimeout(r, 2000 * retries));
             }
         }
-        if (!records.length) {
-            logger_1.default.info(`✅ No more records at page ${page}. Done.`);
-            break;
-        }
-        totalFetched += records.length;
-        logger_1.default.info(`📊 Got ${records.length} records on page ${page}.`);
-        // ── Log output fields on first page
-        if (page === 0) {
-            logger_1.default.info('📋 API Output fields: ' + Object.keys(records[0]).join(', '));
-        }
-        // ── Build MongoDB upsert operations
-        const bulkOps = await Promise.all(records.map(async (r) => {
-            // dataValue is the water level in metres (can be negative = depth below surface)
-            const waterLevel = typeof r.dataValue === 'number' ? r.dataValue : null;
-            if (waterLevel === null || isNaN(waterLevel))
-                return null;
-            const measurementDate = r.dataTime ? new Date(r.dataTime) : null;
-            if (!measurementDate || isNaN(measurementDate.getTime()))
-                return null;
-            const pinCode = await getPinCode(r.village, r.district);
-            const doc = {
-                location: {
-                    state: r.state?.trim() || '',
-                    district: r.district?.trim() || null,
-                    block: r.block?.trim() || null,
-                    tehsil: r.tehsil?.trim() || null,
-                    village: r.village?.trim() || null,
-                    pinCode,
-                    stationId: r.stationCode || null,
-                    stationName: r.stationName || null,
-                    coordinates: r.latitude && r.longitude
-                        ? { type: 'Point', coordinates: [r.longitude, r.latitude] }
-                        : undefined,
-                },
-                date: measurementDate,
-                waterLevelMbgl: Math.abs(waterLevel), // store as positive MBGL
-                dataValue: waterLevel, // raw API value (can be negative)
-                unit: r.unit || 'm',
-                wellType: r.wellType || null,
-                wellDepth: r.wellDepth || null,
-                wellAquiferType: r.wellAquiferType || null,
-                agencyName: r.agencyName || agencyName,
-                stationType: r.stationType || 'Ground Water',
-                stationStatus: r.stationStatus || null,
-                dataAcquisitionMode: r.dataAcquisitionMode || null,
-                majorBasin: r.majorBasin || null,
-                tributary: r.tributary || null,
-                source: 'WRIS-AdminAPI',
-            };
-            if (!doc.location.state)
-                return null;
-            // Log record summary
-            logger_1.default.info(`📍 ${r.stationCode} | ${r.district} | ${r.village ?? '-'} | PIN: ${pinCode ?? 'N/A'} | WL: ${waterLevel}m | Date: ${r.dataTime}`);
-            return {
-                updateOne: {
-                    filter: {
-                        'location.stationId': doc.location.stationId,
-                        date: doc.date,
+        try {
+            if (!records.length) {
+                logger_1.default.info(`✅ No more records at page ${page}. Done.`);
+                break;
+            }
+            totalFetched += records.length;
+            logger_1.default.info(`📊 Got ${records.length} records on page ${page}.`);
+            if (page === 0) {
+                logger_1.default.info('📋 API Output fields: ' + Object.keys(records[0]).join(', '));
+            }
+            const bulkOps = await Promise.all(records.map(async (r) => {
+                const waterLevel = typeof r.dataValue === 'number' ? r.dataValue : null;
+                if (waterLevel === null || isNaN(waterLevel))
+                    return null;
+                const measurementDate = r.dataTime ? new Date(r.dataTime) : null;
+                if (!measurementDate || isNaN(measurementDate.getTime()))
+                    return null;
+                const pinCode = await getPinCode(r.village, r.district);
+                const doc = {
+                    location: {
+                        state: r.state?.trim() || '',
+                        district: r.district?.trim() || null,
+                        block: r.block?.trim() || null,
+                        tehsil: r.tehsil?.trim() || null,
+                        village: r.village?.trim() || null,
+                        pinCode,
+                        stationId: r.stationCode || null,
+                        stationName: r.stationName || null,
+                        coordinates: r.latitude && r.longitude
+                            ? { type: 'Point', coordinates: [r.longitude, r.latitude] }
+                            : undefined,
                     },
-                    update: { $set: doc },
-                    upsert: true,
-                },
-            };
-        }));
-        const validOps = bulkOps.filter(op => op !== null);
-        if (validOps.length > 0) {
-            const result = await Groundwater_1.Groundwater.bulkWrite(validOps, { ordered: false });
-            const saved = result.modifiedCount + result.upsertedCount;
-            totalSaved += saved;
-            logger_1.default.info(`💾 Page ${page}: ${saved} records saved (${validOps.length} valid of ${records.length} fetched).`);
+                    date: measurementDate,
+                    waterLevelMbgl: Math.abs(waterLevel),
+                    dataValue: waterLevel,
+                    unit: r.unit || 'm',
+                    wellType: r.wellType || null,
+                    wellDepth: r.wellDepth || null,
+                    wellAquiferType: r.wellAquiferType || null,
+                    agencyName: r.agencyName || agencyName,
+                    stationType: r.stationType || 'Ground Water',
+                    stationStatus: r.stationStatus || null,
+                    dataAcquisitionMode: r.dataAcquisitionMode || null,
+                    majorBasin: r.majorBasin || null,
+                    tributary: r.tributary || null,
+                    source: 'WRIS-AdminAPI',
+                };
+                if (!doc.location.state)
+                    return null;
+                return {
+                    updateOne: {
+                        filter: {
+                            'location.stationId': doc.location.stationId,
+                            date: doc.date,
+                        },
+                        update: { $set: doc },
+                        upsert: true,
+                    },
+                };
+            }));
+            const validOps = bulkOps.filter(op => op !== null);
+            if (validOps.length > 0) {
+                const result = await Groundwater_1.Groundwater.bulkWrite(validOps, { ordered: false });
+                const saved = result.modifiedCount + result.upsertedCount;
+                totalSaved += saved;
+                logger_1.default.info(`💾 Page ${page}: ${saved} records saved (${validOps.length} valid of ${records.length} fetched).`);
+            }
+        }
+        catch (loopErr) {
+            logger_1.default.error(`❌ Fatal error processing page ${page}: ${loopErr.message}`);
+            // Break the loop to avoid infinite error cycle, but the function returns normally
+            break;
         }
         page++;
         if (records.length < size)

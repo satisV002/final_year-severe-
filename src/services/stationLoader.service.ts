@@ -21,14 +21,24 @@ export const loadStations = (): void => {
 
     try {
         const filePath = path.join(__dirname, '../data/stations.json');
+        
+        if (!fs.existsSync(filePath)) {
+            console.error(`[StationLoader] stations.json not found at ${filePath}. Starting with empty station list.`);
+            stationsCache = [];
+            isLoaded = true;
+            return;
+        }
+
         const fileData = fs.readFileSync(filePath, 'utf-8');
         const rawStations = JSON.parse(fileData);
 
+        if (!Array.isArray(rawStations)) {
+            throw new Error('stations.json must be an array');
+        }
+
         let idCounter = 1;
         stationsCache = rawStations.map((station: any) => {
-            // Generate a simple unique ID for each station since it's not present in the source dataset
             const stationId = `STN-${station.State_Name?.substring(0, 2)}-${idCounter++}`.toUpperCase();
-
             return {
                 stationId,
                 stationName: station.Station_Name || '',
@@ -39,14 +49,17 @@ export const loadStations = (): void => {
                 lng: Number(station.Longitude),
                 agencyName: station.Agency_Name || 'CGWB'
             };
-        }).filter((s: Station) => !isNaN(s.lat) && !isNaN(s.lng)); // Filter out invalid coordinates
+        }).filter((s: Station) => !isNaN(s.lat) && !isNaN(s.lng));
 
         isLoaded = true;
         console.log(`[StationLoader] Successfully loaded ${stationsCache.length} stations into memory cache.`);
-    } catch (error) {
-        console.error('[StationLoader] Failed to load stations:', error);
+    } catch (error: any) {
+        console.error('[StationLoader] Failed to load stations:', error.message);
+        stationsCache = []; // Safe fallback
+        isLoaded = true;
     }
 };
+
 
 export const getAllStations = (): Station[] => {
     if (!isLoaded) {

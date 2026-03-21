@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { catchAsync } from '../utils/catchAsync';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ try {
 }
 
 // GET /api/v1/mock/groundwater
-router.get('/groundwater', (req, res) => {
+router.get('/groundwater', catchAsync(async (req, res) => {
     const { state, district, page = '1', limit = '100', sort = 'date:-1' } = req.query;
 
     let filtered = allStations;
@@ -30,12 +31,9 @@ router.get('/groundwater', (req, res) => {
     const p = Math.max(1, parseInt(page as string, 10));
     const l = Math.min(parseInt(limit as string, 10) || 100, 2000); 
 
-    // If "All India" or no state, shuffle/sample to show diversity
     let stationsToMock = [...filtered];
     if ((!state || state === 'All India') && stationsToMock.length > l) {
-        // Simple deterministic shuffle based on page to show diversity
         stationsToMock = stationsToMock.sort((a,b) => (a.Station_Name || '').localeCompare(b.Station_Name || ''));
-        // Sample every Nth station to cover all states
         const step = Math.max(1, Math.floor(stationsToMock.length / l));
         stationsToMock = stationsToMock.filter((_, idx) => idx % step === 0).slice(0, l);
     } else {
@@ -50,13 +48,11 @@ router.get('/groundwater', (req, res) => {
         const seed = Math.abs((st.Latitude || 17) * (st.Longitude || 78));
         const stationId = `${st.State_Name?.substring(0,2)}-${i}-${st.Station_Name?.substring(0,3)}`.toUpperCase();
 
-        // Generate 12 months of history for each station to populate "Recharge vs Extraction" and Trends
         for (let m = 0; m < 12; m++) {
             const d = new Date(today.getFullYear(), today.getMonth() - m, 15);
             const month = d.getMonth() + 1;
             const isMonsoon = month >= 6 && month <= 9;
             
-            // Base level around 8-12m
             const baseLevel = 2 + (seed % 15) + (isMonsoon ? -2 : 2); 
             const rain = isMonsoon ? (150 + (seed % 300)) : (5 + (seed % 20));
 
@@ -92,17 +88,19 @@ router.get('/groundwater', (req, res) => {
         },
         message: 'Mock records generated with 12-month history for dashboard consistency'
     });
-});
+}));
+
 
 // Summary Endpoint for quick charting
-router.get('/summary', (req, res) => {
+router.get('/summary', catchAsync(async (req, res) => {
     res.json({
         success: true,
         totalRecords: allStations.length,
-        districts: [], // Compute unique on frontend or leave empty for performance
+        districts: [], 
         avgLevel: 10.5,
         data: [] 
     });
-});
+}));
+
 
 export default router;

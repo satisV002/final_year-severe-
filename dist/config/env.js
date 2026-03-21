@@ -13,7 +13,7 @@ const envVars = (0, envalid_1.cleanEnv)(process.env, {
     NODE_ENV: (0, envalid_1.str)({
         choices: ["development", "production", "test"],
     }),
-    PORT: (0, envalid_1.num)({ default: 8000 }),
+    PORT: (0, envalid_1.num)({ default: 7000 }),
     MONGODB_URI: (0, envalid_1.str)(),
     REDIS_URL: (0, envalid_1.str)({
         default: "redis://localhost:6379",

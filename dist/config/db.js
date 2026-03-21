@@ -44,14 +44,20 @@ const connectDB = async () => {
         mongoose_1.default.connection.on('disconnected', () => logger_1.default.warn('MongoDB disconnected - auto-reconnect will try'));
     }
     catch (error) {
-        console.error('CRITICAL MONGO CRASH:', error);
+        console.error('CRITICAL MONGO CRASH:', error.message || error);
         logger_1.default.error('MongoDB connection failed', {
             message: error.message,
-            stack: error.stack,
             code: error.code,
             name: error.name,
         });
-        process.exit(1);
+        // In production: crash hard (Railway will restart)
+        // In development: warn and continue — mock data still works
+        if (env_1.env.isProd) {
+            process.exit(1);
+        }
+        else {
+            logger_1.default.warn('⚠️ MongoDB unavailable in dev — server will continue with mock/static data only');
+        }
     }
 };
 exports.connectDB = connectDB;
