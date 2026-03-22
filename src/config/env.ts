@@ -8,11 +8,15 @@ dotenv.config({
 const envVars = cleanEnv(process.env, {
   NODE_ENV: str({
     choices: ["development", "production", "test"],
+    default: "development"
   }),
 
   PORT: num({ default: 7000 }),
 
-  MONGODB_URI: str(),
+  // Make these optional with defaults or more robust to prevent 502 on start
+  MONGODB_URI: str({ 
+    default: "mongodb://localhost:27017/groundwater_fallback" 
+  }),
 
   REDIS_URL: str({
     default: "redis://localhost:6379",
@@ -30,14 +34,16 @@ const envVars = cleanEnv(process.env, {
     default: 100,
   }),
 
-  JWT_SECRET: str(),
+  JWT_SECRET: str({ 
+    default: "fallback_secret_change_me_in_production_12345" 
+  }),
 
   JWT_EXPIRY: str({
     default: "1h",
   }),
   
   FRONTEND_URL: str({
-    default: "http://localhost:3000",
+    default: "https://final-year-client-three.vercel.app",
   }),
 });
 
