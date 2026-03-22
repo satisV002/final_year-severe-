@@ -3,7 +3,7 @@ import express, { Express } from 'express';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-const cors = require('cors');
+import cors from 'cors';
 
 import hpp from 'hpp';
 import rateLimit from 'express-rate-limit';
@@ -69,18 +69,14 @@ const createApp = (): Express => {
       callback(new Error(`CORS: Origin not allowed → ${origin}`));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     credentials: true,
     optionsSuccessStatus: 204,
   };
 
   // Apply CORS middleware
-  const actualCors = typeof cors === 'function' ? cors : (cors?.default || cors);
-  if (typeof actualCors === 'function') {
-    app.use(actualCors(corsOptions));
-  } else {
-    console.warn('⚠️ cors middleware fallback used');
-  }
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
 
   // Debug endpoint to check CORS config (Public for now)
   app.get('/api/v1/debug-cors', (req, res) => {

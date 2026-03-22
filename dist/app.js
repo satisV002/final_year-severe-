@@ -7,8 +7,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const helmet_1 = __importDefault(require("helmet"));
 const compression_1 = __importDefault(require("compression"));
-const cors_1 = __importDefault(require("cors"));
 const morgan_1 = __importDefault(require("morgan"));
+const cors_1 = __importDefault(require("cors"));
 const hpp_1 = __importDefault(require("hpp"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const env_1 = require("./config/env");
@@ -22,40 +22,83 @@ const mockData_1 = __importDefault(require("./routes/mockData"));
 const proxy_1 = __importDefault(require("./routes/proxy"));
 const createApp = () => {
     const app = (0, express_1.default)();
+    // ─── DIAGNOSTIC LOGS ──────────────────────────────────────────
+    console.log('🧪 Middleware Diagnostics:', {
+        express: typeof express_1.default,
+        helmet: typeof helmet_1.default,
+        compression: typeof compression_1.default,
+        morgan: typeof morgan_1.default,
+        cors: typeof cors_1.default,
+        hpp: typeof hpp_1.default,
+        rateLimit: typeof express_rate_limit_1.default
+    });
     // Security headers
-    app.use((0, helmet_1.default)());
+    if (typeof helmet_1.default === 'function') {
+        app.use((0, helmet_1.default)());
+    }
+    else {
+        console.error('❌ helmet is not a function!', helmet_1.default);
+    }
     // ─── CORS ───────────────────────────────────────────────────────────────────
     const ALLOWED_ORIGINS = [
-        'https://final-year-client-three.vercel.app',
-        'http://localhost:3000',
-        'http://localhost:3001',
-    ];
+        env_1.env.FRONTEND_URL, // From .env (Production/Dev override)
+        'https://final-year-client-three.vercel.app', // Explicit production URL
+        'http://localhost:3000', // Next.js default
+        'http://localhost:3001', // Alternate
+        'http://localhost:3002', // Alternate
+        'http://localhost:3005', // Alternatea
+        'http://localhost:5173', // Vite default
+        'http://localhost:8080', // Legacy/Other
+    ].filter(Boolean); // Remove any undefined/null values
     const corsOptions = {
         origin: (origin, callback) => {
             // Allow requests with no origin (mobile apps, curl, Postman etc.)
             if (!origin)
                 return callback(null, true);
-            if (ALLOWED_ORIGINS.includes(origin))
+            // Check if origin is in allowed list
+            if (ALLOWED_ORIGINS.includes(origin)) {
                 return callback(null, true);
+            }
+            // Development convenience: allow any localhost in dev mode (optional, but safer to be explicit)
+            if (env_1.env.isDev && origin.startsWith('http://localhost:')) {
+                return callback(null, true);
+            }
             callback(new Error(`CORS: Origin not allowed → ${origin}`));
         },
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
         credentials: true,
         optionsSuccessStatus: 204,
     };
-    // Handle preflight for ALL routes (MUST be before routes)
-    app.options('*', (0, cors_1.default)(corsOptions));
+    // Apply CORS middleware
     app.use((0, cors_1.default)(corsOptions));
-    // Manual header fallback (belt-and-suspenders)
+    app.options('*', (0, cors_1.default)(corsOptions));
+    // Debug endpoint to check CORS config (Public for now)
+    app.get('/api/v1/debug-cors', (req, res) => {
+        res.json({
+            allowedOrigins: ALLOWED_ORIGINS,
+            currentOrigin: req.headers.origin,
+            isMatch: req.headers.origin ? ALLOWED_ORIGINS.includes(req.headers.origin) : 'no origin',
+            env: {
+                isDev: env_1.env.isDev,
+                frontendUrl: env_1.env.FRONTEND_URL
+            }
+        });
+    });
+    // Manual header fallback for extra stability
     app.use((req, res, next) => {
         const origin = req.headers.origin;
-        if (origin && ALLOWED_ORIGINS.includes(origin)) {
+        const isAllowed = origin && (ALLOWED_ORIGINS.includes(origin) || (env_1.env.isDev && origin.startsWith('http://localhost:')));
+        if (origin && isAllowed) {
             res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
         }
-        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        // Handle preflight for manual fallback
+        if (req.method === 'OPTIONS' && isAllowed) {
+            return res.status(204).end();
+        }
         next();
     });
     // ─────────────────────────────────────────────────────────────────────────────
