@@ -43,9 +43,9 @@ const startServer = async () => {
     });
 
     // 2. Background initialization
-    console.log('📦 Loading memory-heavy datasets...');
-    await loadStations(); 
-    await loadRainfall(); 
+    console.log('📦 Skipping memory-heavy datasets for debugging...');
+    // await loadStations(); 
+    // await loadRainfall(); 
 
     if (!env.isTest) {
       console.log('🔌 Connecting to databases...');
