@@ -41,91 +41,54 @@ const createApp = (): Express => {
 
   // ─── CORS ───────────────────────────────────────────────────────────────────
   const ALLOWED_ORIGINS = [
-    env.FRONTEND_URL,
     'https://final-year-client-three.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:3002',
-    'http://localhost:3005',
     'http://localhost:5173',
-    'http://localhost:8080',
-  ].filter(Boolean);
+  ];
 
-  app.use(cors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin) return callback(null, true);
-
-      // allow localhost
-      if (origin.startsWith('http://localhost')) {
-        return callback(null, true);
+  const corsOptions = {
+    origin: (origin: string | undefined, callback: any) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin) || (env.isDev && origin.startsWith('http://localhost:'))) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS: Origin not allowed'));
       }
-
-      // allow all vercel deployments
-      if (origin.includes('vercel.app')) {
-        return callback(null, true);
-      }
-
-      // allow your main domain
-      if (origin === 'https://final-year-client-three.vercel.app') {
-        return callback(null, true);
-      }
-
-      return callback(new Error('CORS blocked: ' + origin));
     },
-    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: true,
     optionsSuccessStatus: 204,
-  }));
-  // Debug endpoint to check CORS config (Public for now)
-  app.get('/api/v1/debug-cors', (req, res) => {
-    res.json({
-      allowedOrigins: ALLOWED_ORIGINS,
-      currentOrigin: req.headers.origin,
-      isMatch: req.headers.origin ? ALLOWED_ORIGINS.includes(req.headers.origin) : 'no origin',
-      env: {
-        isDev: env.isDev,
-        frontendUrl: env.FRONTEND_URL
-      }
-    });
-  });
+  };
 
-  // Manual header fallback for extra stability
+  // 1. CORS Middleware (Applied FIRST)
+  app.use(cors(corsOptions));
+  
+  // 2. Handle all OPTIONS requests explicitly
+  app.options('*', cors(corsOptions));
+
+  // Request Logger for Debugging (Applied early)
   app.use((req, res, next) => {
-    const origin = req.headers.origin as string | undefined;
-    const isAllowed = origin && (ALLOWED_ORIGINS.includes(origin) || (env.isDev && origin.startsWith('http://localhost:')));
-    
-    if (origin && isAllowed) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
-    
-    // Handle preflight for manual fallback
-    if (req.method === 'OPTIONS' && isAllowed) {
-      return res.status(204).end();
-    }
-    
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
   });
   // ─────────────────────────────────────────────────────────────────────────────
 
 
-  // Body parsing
+  // 3. Body parsing (Applied AFTER CORS)
   app.use(express.json({ limit: '10kb' }));
   app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
   // Security middlewares
   app.use(hpp());
 
-  // Rate limiting (global)
+  // Rate limiting (global) - disable if 502 persists
   app.use(rateLimit({
     windowMs: env.RATE_LIMIT_WINDOW_MS,
     max: env.RATE_LIMIT_MAX,
     message: { success: false, error: 'Too many requests — try again later' },
     standardHeaders: true,
-    legacyHeaders: false,
   }));
 
   // Compression
@@ -138,7 +101,7 @@ const createApp = (): Express => {
     app.use(morgan('combined', { stream: { write: (msg) => logger.http(msg.trim()) } }));
   }
 
-  // Request logging
+  // Legacy request logging
   app.use(requestLogger);
 
   // Routes
