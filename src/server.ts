@@ -37,8 +37,8 @@ server.on('error', (err: any) => {
 const startServer = async () => {
   try {
     // 1. Listen IMMEDIATELY so Railway/Load Balancers don't 502 during startup
-    server.listen(env.PORT, () => {
-      logger.info(`Server listening on ${env.PORT} (PID: ${process.pid})`);
+    server.listen(env.PORT, '0.0.0.0', () => {
+      logger.info(`Server listening on 0.0.0.0:${env.PORT} (PID: ${process.pid})`);
       console.log(`🚀 Server started on port ${env.PORT}. Initializing services...`);
     });
 
