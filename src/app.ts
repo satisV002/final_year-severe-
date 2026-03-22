@@ -65,8 +65,8 @@ const createApp = (): Express => {
   // 1. CORS Middleware (Applied FIRST)
   app.use(cors(corsOptions));
   
-  // 2. Handle all OPTIONS requests explicitly
-  app.options('*', cors(corsOptions));
+  // 2. Handle all OPTIONS requests explicitly (Express 5 compatible syntax)
+  app.options('(.*)', cors(corsOptions));
 
   // Request Logger for Debugging (Applied early)
   app.use((req, res, next) => {
