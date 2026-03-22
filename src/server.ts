@@ -34,38 +34,55 @@ server.on('error', (err: any) => {
   process.exit(1);
 });
 
+// ─── START SERVER ────────────────────────────────────────────────────────────
 const startServer = async () => {
   try {
-    // 1. Listen IMMEDIATELY so Railway/Load Balancers don't 502 during startup
-    server.listen(env.PORT, '0.0.0.0', () => {
-      logger.info(`Server listening on 0.0.0.0:${env.PORT} (PID: ${process.pid})`);
-      console.log(`🚀 Server started on port ${env.PORT}. Initializing services...`);
+    // 1. LISTEN IMMEDIATELY (Prevent 502)
+    const port = process.env.PORT || env.PORT || 7000;
+    server.listen(port, '0.0.0.0', () => {
+      console.log(`\n🚀 [SYSTEM] Server listening on 0.0.0.0:${port}`);
+      console.log(`🌍 [SYSTEM] Environment: ${env.NODE_ENV}`);
+      console.log(`⏱️ [SYSTEM] Time: ${new Date().toISOString()}\n`);
     });
 
-    // 2. Background initialization
-    console.log('📦 Skipping memory-heavy datasets for debugging...');
-    // await loadStations(); 
-    // await loadRainfall(); 
-
-    if (!env.isTest) {
-      console.log('🔌 Connecting to databases...');
-      await connectDB();
-
+    // 2. BACKGROUND INITIALIZATION (Non-blocking)
+    (async () => {
       try {
-        await getRedisClient();
-        logger.info('DB + Redis connected');
-      } catch {
-        logger.warn('Redis unavailable — starting without cache layer');
-      }
+        console.log('📦 [INIT] Starting Background Data Loading...');
+        
+        // Load data files (Async)
+        await loadStations();
+        await loadRainfall();
+        console.log('✅ [INIT] Datasets loaded successfully');
 
-      if (env.isProd) {
-        setupDailyFetchCron();
-      }
-    }
+        if (!env.isTest) {
+          console.log('🔌 [INIT] Connecting to MongoDB...');
+          await connectDB();
+          console.log('✅ [INIT] MongoDB connected');
 
-    console.log(`✅ Initialization complete. Ready for traffic.`);
+          try {
+            console.log('🔌 [INIT] Connecting to Redis...');
+            await getRedisClient();
+            console.log('✅ [INIT] Redis connected');
+          } catch (err) {
+            console.warn('⚠️ [INIT] Redis connection failed - proceeding without cache');
+          }
+
+          if (env.isProd) {
+            setupDailyFetchCron();
+            console.log('⏰ [INIT] Cron tasks scheduled');
+          }
+        }
+        
+        console.log('🎉 [INIT] ALL SERVICES INITIALIZED AND READY');
+      } catch (initErr: any) {
+        console.error('❌ [INIT FAILURE] Background initialization failed:', initErr);
+        // We don't exit(1) here because we want the server to stay alive for diagnostics
+      }
+    })();
+
   } catch (err: any) {
-    console.error('🔥 CRITICAL STARTUP ERROR:', err);
+    console.error('🔥 [CRITICAL] FATAL SERVER STARTUP ERROR:', err);
     process.exit(1);
   }
 };
