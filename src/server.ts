@@ -38,7 +38,7 @@ server.on('error', (err: any) => {
 const startServer = async () => {
   try {
     // 1. LISTEN IMMEDIATELY (Prevent 502)
-    const port = process.env.PORT || env.PORT || 7000;
+    const port = parseInt(String(process.env.PORT || env.PORT || 7000), 10);
     server.listen(port, '0.0.0.0', () => {
       console.log(`\n🚀 [SYSTEM] Server listening on 0.0.0.0:${port}`);
       console.log(`🌍 [SYSTEM] Environment: ${env.NODE_ENV}`);
