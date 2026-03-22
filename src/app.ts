@@ -76,7 +76,6 @@ const createApp = (): Express => {
 
   // Apply CORS middleware
   app.use(cors(corsOptions));
-
   // Debug endpoint to check CORS config (Public for now)
   app.get('/api/v1/debug-cors', (req, res) => {
     res.json({
