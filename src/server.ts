@@ -36,11 +36,19 @@ server.on('error', (err: any) => {
 
 const startServer = async () => {
   try {
-    console.log('🚀 Starting stability sequence...');
+    // 1. Listen IMMEDIATELY so Railway/Load Balancers don't 502 during startup
+    server.listen(env.PORT, () => {
+      logger.info(`Server listening on ${env.PORT} (PID: ${process.pid})`);
+      console.log(`🚀 Server started on port ${env.PORT}. Initializing services...`);
+    });
+
+    // 2. Background initialization
+    console.log('📦 Loading memory-heavy datasets...');
     await loadStations(); 
     await loadRainfall(); 
 
     if (!env.isTest) {
+      console.log('🔌 Connecting to databases...');
       await connectDB();
 
       try {
@@ -55,10 +63,7 @@ const startServer = async () => {
       }
     }
 
-    server.listen(env.PORT, () => {
-      logger.info(`Server running → http://localhost:${env.PORT} (PID: ${process.pid})`);
-      console.log(`✅ Stability sequence complete. Server listening on ${env.PORT}`);
-    });
+    console.log(`✅ Initialization complete. Ready for traffic.`);
   } catch (err: any) {
     console.error('🔥 CRITICAL STARTUP ERROR:', err);
     process.exit(1);
