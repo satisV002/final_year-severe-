@@ -41,38 +41,38 @@ const createApp = () => {
     }
     // ─── CORS ───────────────────────────────────────────────────────────────────
     const ALLOWED_ORIGINS = [
-        env_1.env.FRONTEND_URL, // From .env (Production/Dev override)
-        'https://final-year-client-three.vercel.app', // Explicit production URL
-        'http://localhost:3000', // Next.js default
-        'http://localhost:3001', // Alternate
-        'http://localhost:3002', // Alternate
-        'http://localhost:3005', // Alternatea
-        'http://localhost:5173', // Vite default
-        'http://localhost:8080', // Legacy/Other
-    ].filter(Boolean); // Remove any undefined/null values
-    const corsOptions = {
+        env_1.env.FRONTEND_URL,
+        'https://final-year-client-three.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'http://localhost:3005',
+        'http://localhost:5173',
+        'http://localhost:8080',
+    ].filter(Boolean);
+    app.use((0, cors_1.default)({
         origin: (origin, callback) => {
-            // Allow requests with no origin (mobile apps, curl, Postman etc.)
             if (!origin)
                 return callback(null, true);
-            // Check if origin is in allowed list
-            if (ALLOWED_ORIGINS.includes(origin)) {
+            // allow localhost
+            if (origin.startsWith('http://localhost')) {
                 return callback(null, true);
             }
-            // Development convenience: allow any localhost in dev mode (optional, but safer to be explicit)
-            if (env_1.env.isDev && origin.startsWith('http://localhost:')) {
+            // allow all vercel deployments
+            if (origin.includes('vercel.app')) {
                 return callback(null, true);
             }
-            callback(new Error(`CORS: Origin not allowed → ${origin}`));
+            // allow your main domain
+            if (origin === 'https://final-year-client-three.vercel.app') {
+                return callback(null, true);
+            }
+            return callback(new Error('CORS blocked: ' + origin));
         },
+        credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-        credentials: true,
         optionsSuccessStatus: 204,
-    };
-    // Apply CORS middleware
-    app.use((0, cors_1.default)(corsOptions));
-    app.options('*', (0, cors_1.default)(corsOptions));
+    }));
     // Debug endpoint to check CORS config (Public for now)
     app.get('/api/v1/debug-cors', (req, res) => {
         res.json({
